@@ -381,3 +381,109 @@ def test_single_floated_fullscreen_client_in_fullscreen_layer(hlwm):
     assert helper_get_layer_as_list(hlwm, 'Fullscreen-Layer') == [winid]
     hlwm.attr.clients[winid].fullscreen = False
     assert helper_get_layer_as_list(hlwm, 'Fullscreen-Layer') == []
+
+
+@pytest.mark.parametrize('floating', [True, False])
+@pytest.mark.parametrize('raise_command', ['raise', 'jumpto'])
+def test_raise_keeps_transient_above_parent(hlwm, x11, floating, raise_command):
+    hlwm.call(['floating', hlwm.bool(floating)])
+    hlwm.call('set raise_on_focus true')
+    parent_win, parent = x11.create_client()
+    _, dialog = x11.create_client(transient_for=parent_win)
+    if not floating:
+        # the dialog floats by its transient hint; float the third client
+        # explicitly so that it can cover the dialog:
+        hlwm.call('rule once floating=on')
+    _, other = x11.create_client()
+    # focus 'other' first: a focused tiled parent is re-raised on every
+    # relayout, and so would be its dialog.
+    hlwm.call(['jumpto', other])
+    hlwm.call(['raise', other])
+    assert helper_get_stack_as_list(hlwm, strip_focus_layer=True) \
+        == [other, dialog, parent]
+    # the tiled parent stays below the floating layer:
+    expected = [dialog, parent, other] if floating else [dialog, other, parent]
+
+    hlwm.call([raise_command, parent])
+
+    assert helper_get_stack_as_list(hlwm, strip_focus_layer=True) == expected
+
+
+def test_raise_keeps_relative_order_of_transients(hlwm, x11):
+    hlwm.call('floating on')
+    parent_win, parent = x11.create_client()
+    _, dialog1 = x11.create_client(transient_for=parent_win)
+    _, dialog2 = x11.create_client(transient_for=parent_win)
+    _, other = x11.create_client()
+    hlwm.call(['raise', dialog1])
+    assert helper_get_stack_as_list(hlwm, strip_focus_layer=True) \
+        == [dialog1, other, dialog2, parent]
+
+    hlwm.call(['raise', parent])
+
+    assert helper_get_stack_as_list(hlwm, strip_focus_layer=True) \
+        == [dialog1, dialog2, parent, other]
+
+
+def test_raise_keeps_nested_transient_above_parent(hlwm, x11):
+    hlwm.call('floating on')
+    parent_win, parent = x11.create_client()
+    dialog_win, dialog = x11.create_client(transient_for=parent_win)
+    _, subdialog = x11.create_client(transient_for=dialog_win)
+    _, other = x11.create_client()
+
+    hlwm.call(['raise', parent])
+
+    assert helper_get_stack_as_list(hlwm, strip_focus_layer=True) \
+        == [subdialog, dialog, parent, other]
+
+
+def test_raise_transient_for_set_after_map(hlwm, x11):
+    hlwm.call('floating on')
+    parent_win, parent = x11.create_client()
+    dialog_win, dialog = x11.create_client()
+    _, other = x11.create_client()
+    dialog_win.set_wm_transient_for(parent_win)
+    x11.display.sync()
+
+    hlwm.call(['raise', parent])
+
+    assert helper_get_stack_as_list(hlwm, strip_focus_layer=True) \
+        == [dialog, parent, other]
+
+    # the client is no longer transient after the hint is removed:
+    dialog_win.delete_property(x11.display.intern_atom('WM_TRANSIENT_FOR'))
+    x11.display.sync()
+    hlwm.call(['raise', other])
+    hlwm.call(['raise', parent])
+
+    assert helper_get_stack_as_list(hlwm, strip_focus_layer=True) \
+        == [parent, other, dialog]
+
+
+def test_raise_transient_cycle_terminates(hlwm, x11):
+    hlwm.call('floating on')
+    win1, client1 = x11.create_client()
+    win2, client2 = x11.create_client(transient_for=win1)
+    win1.set_wm_transient_for(win2)
+    x11.display.sync()
+
+    hlwm.call(['raise', client1])
+
+    assert helper_get_stack_as_list(hlwm, strip_focus_layer=True) \
+        == [client2, client1]
+
+
+def test_raise_ignores_transient_on_other_tag(hlwm, x11):
+    hlwm.call('floating on')
+    hlwm.call('add othertag')
+    parent_win, parent = x11.create_client()
+    _, dialog = x11.create_client(transient_for=parent_win)
+    _, other = x11.create_client()
+    hlwm.call(['jumpto', dialog])
+    hlwm.call(['move', 'othertag'])
+    assert hlwm.get_attr(f'clients.{dialog}.tag') == 'othertag'
+
+    hlwm.call(['raise', parent])
+
+    assert helper_get_stack_as_list(hlwm, strip_focus_layer=True) == [parent, other]

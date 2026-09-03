@@ -190,6 +190,7 @@ void Client::init_from_X() {
     update_title();
     readWmHints();
     updatesizehints();
+    updateTransientFor();
 }
 
 void Client::make_full_client() {
@@ -296,8 +297,42 @@ void Client::resize_fullscreen(Rectangle monitor_rect, bool isFocused) {
     dec->resize_outline(monitor_rect);
 }
 
+//! re-read the WM_TRANSIENT_FOR hint
+void Client::updateTransientFor() {
+    transientFor_ = X_.getTransientForHint(window_).value_or(None);
+}
+
+/**
+ * @brief raise this client and keep its transient windows above it: after
+ * the client itself, every client on the same tag whose WM_TRANSIENT_FOR
+ * names this client is raised as well (recursively), preserving their
+ * relative stacking order. So a dialog never ends up covered by the window
+ * it belongs to.
+ */
 void Client::raise() {
-    this->tag()->stack->raiseSlice(this->slice);
+    std::set<Client*> raised;
+    raiseWithTransients(raised);
+}
+
+void Client::raiseWithTransients(std::set<Client*>& raised) {
+    raised.insert(this);
+    tag()->stack->raiseSlice(slice);
+    // collect the clients that are transient for this one, from top to
+    // bottom of the current stack of the tag.
+    vector<Client*> transients;
+    tag()->stack->extractWindows(true, [&](Window win) {
+        Client* client = manager.client(win);
+        if (client && client->transientFor_ == window_
+            && raised.count(client) == 0)
+        {
+            transients.push_back(client);
+        }
+    });
+    // raise the lowest transient first, such that the topmost one
+    // ends up on top again.
+    for (auto it = transients.rbegin(); it != transients.rend(); ++it) {
+        (*it)->raiseWithTransients(raised);
+    }
 }
 
 void Client::lower()

@@ -3,6 +3,7 @@
 
 #include <X11/X.h>
 #include <X11/Xlib.h>
+#include <set>
 
 #include "attribute_.h"
 #include "child.h"
@@ -40,6 +41,8 @@ public:
     Attribute_<Rectangle> float_size_;     // floating size without the window border
     HSTag*      tag_ = {};
     Slice* slice = {};
+    //! the window named by WM_TRANSIENT_FOR, or None if there is no such hint
+    Window      transientFor_ = None;
     bool        ewmhfullscreen_ = false; // ewmh fullscreen state
     bool        neverfocus_ = false; // do not give the focus via XSetInputFocus
     Attribute_<bool> decorated_;
@@ -118,6 +121,7 @@ public:
     void set_urgent(bool state);
     void readWmHints(bool forceNotUrgent = false);
     void update_title();
+    void updateTransientFor();
     void raise();
     void lower();
 
@@ -136,6 +140,7 @@ public:
 
     void updateEwmhState();
 private:
+    void raiseWithTransients(std::set<Client*>& raised);
     void floatingGeometryChanged();
     void urgencyAttributeChanged(bool state);
     void fixParentWindow(bool decorated);

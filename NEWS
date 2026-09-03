@@ -15,6 +15,10 @@ Current git version
     in the fullscreen layer, like a tiled fullscreen client. Previously it
     was resized to the monitor but stayed in the floating layer, below any
     floating window raised after it.
+  * Keep transient windows (dialogs with a WM_TRANSIENT_FOR hint) above the
+    window they belong to: raising a client now also raises its transient
+    clients, so a dialog is no longer covered by its own application after
+    the application window is raised, focused or clicked.
 
 Release 0.9.6 on 2026-04-03
 ---------------------------
