@@ -487,3 +487,81 @@ def test_raise_ignores_transient_on_other_tag(hlwm, x11):
     hlwm.call(['raise', parent])
 
     assert helper_get_stack_as_list(hlwm, strip_focus_layer=True) == [parent, other]
+
+
+def test_fullscreen_parent_takes_transient_into_fullscreen_layer(hlwm, x11):
+    hlwm.call('floating on')
+    hlwm.call('set raise_on_focus true')
+    parent, parent_id = x11.create_client()
+    dialog, dialog_id = x11.create_client(transient_for=parent)
+    other, other_id = x11.create_client()
+    hlwm.call(['jumpto', other_id])
+    assert helper_get_stack_as_list(hlwm) == [other_id, dialog_id, parent_id]
+
+    hlwm.attr.clients[parent_id].fullscreen = True
+    assert helper_get_layer_as_list(hlwm, 'Fullscreen-Layer') == [dialog_id, parent_id]
+    # the focused client is put in the focus layer above the fullscreen ones
+    assert helper_get_stack_as_list(hlwm) == [other_id, dialog_id, parent_id]
+
+    # raising the parent raises the dialog above it in every layer
+    hlwm.call(['raise', parent_id])
+    assert helper_get_layer_as_list(hlwm, 'Fullscreen-Layer') == [dialog_id, parent_id]
+    assert helper_get_stack_as_list(hlwm) == [other_id, dialog_id, parent_id]
+
+    # the dialog leaves the fullscreen layer together with the parent
+    hlwm.attr.clients[parent_id].fullscreen = False
+    assert helper_get_layer_as_list(hlwm, 'Fullscreen-Layer') == []
+    assert helper_get_stack_as_list(hlwm) == [dialog_id, parent_id, other_id]
+
+
+def test_focused_fullscreen_parent_takes_transient_into_focus_layer(hlwm, x11):
+    hlwm.call('floating on')
+    hlwm.call('set raise_on_focus true')
+    parent, parent_id = x11.create_client()
+    dialog, dialog_id = x11.create_client(transient_for=parent)
+    subdialog, subdialog_id = x11.create_client(transient_for=dialog)
+    other, other_id = x11.create_client()
+    hlwm.call(['jumpto', parent_id])
+    hlwm.attr.clients[parent_id].fullscreen = True
+    assert helper_get_layer_as_list(hlwm, 'Focus-Layer') \
+        == [subdialog_id, dialog_id, parent_id]
+    assert helper_get_layer_as_list(hlwm, 'Fullscreen-Layer') \
+        == [subdialog_id, dialog_id, parent_id]
+    assert helper_get_stack_as_list(hlwm) \
+        == [subdialog_id, dialog_id, parent_id, other_id]
+
+
+def test_parent_entering_fullscreen_below_its_fullscreen_transient(hlwm, x11):
+    hlwm.call('floating on')
+    parent, parent_id = x11.create_client()
+    dialog, dialog_id = x11.create_client(transient_for=parent)
+    other, other_id = x11.create_client()
+    hlwm.call(['jumpto', other_id])
+
+    # a fullscreen dialog of a non-fullscreen parent is in the layer alone
+    hlwm.attr.clients[dialog_id].fullscreen = True
+    assert helper_get_layer_as_list(hlwm, 'Fullscreen-Layer') == [dialog_id]
+
+    # the parent enters the layer below its dialog, not on top of it
+    hlwm.attr.clients[parent_id].fullscreen = True
+    assert helper_get_layer_as_list(hlwm, 'Fullscreen-Layer') == [dialog_id, parent_id]
+
+    # the dialog stays in the layer on its own account
+    hlwm.attr.clients[parent_id].fullscreen = False
+    assert helper_get_layer_as_list(hlwm, 'Fullscreen-Layer') == [dialog_id]
+
+
+def test_raise_on_focus_temporarily_takes_transient_into_focus_layer(hlwm, x11):
+    hlwm.call('floating on')
+    hlwm.call('set raise_on_focus_temporarily true')
+    parent, parent_id = x11.create_client()
+    dialog, dialog_id = x11.create_client(transient_for=parent)
+    other, other_id = x11.create_client()
+
+    hlwm.call(['jumpto', parent_id])
+    assert helper_get_layer_as_list(hlwm, 'Focus-Layer') == [dialog_id, parent_id]
+    assert helper_get_stack_as_list(hlwm) == [dialog_id, parent_id, other_id]
+
+    hlwm.call(['jumpto', other_id])
+    assert helper_get_layer_as_list(hlwm, 'Focus-Layer') == [other_id]
+    assert helper_get_stack_as_list(hlwm) == [other_id, dialog_id, parent_id]

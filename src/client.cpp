@@ -302,6 +302,38 @@ void Client::updateTransientFor() {
     transientFor_ = X_.getTransientForHint(window_).value_or(None);
 }
 
+//! this client followed by the clients on its tag that are transient for
+//! it, recursively. The transients of a client are listed from the lowest to
+//! the topmost in the current stacking order, such that putting the clients
+//! on top of a layer one after the other in this order keeps every transient
+//! above the client it belongs to and keeps the relative order of the
+//! transients. A cycle in the WM_TRANSIENT_FOR hints is visited only once.
+vector<Client*> Client::withTransients() {
+    vector<Client*> result;
+    std::set<Client*> visited;
+    collectWithTransients(result, visited);
+    return result;
+}
+
+void Client::collectWithTransients(vector<Client*>& result, std::set<Client*>& visited) {
+    visited.insert(this);
+    result.push_back(this);
+    // collect the clients that are transient for this one, from top to
+    // bottom of the current stack of the tag.
+    vector<Client*> transients;
+    tag()->stack->extractWindows(true, [&](Window win) {
+        Client* client = manager.client(win);
+        if (client && client->transientFor_ == window_
+            && visited.count(client) == 0)
+        {
+            transients.push_back(client);
+        }
+    });
+    for (auto it = transients.rbegin(); it != transients.rend(); ++it) {
+        (*it)->collectWithTransients(result, visited);
+    }
+}
+
 /**
  * @brief raise this client and keep its transient windows above it: after
  * the client itself, every client on the same tag whose WM_TRANSIENT_FOR
@@ -310,28 +342,8 @@ void Client::updateTransientFor() {
  * it belongs to.
  */
 void Client::raise() {
-    std::set<Client*> raised;
-    raiseWithTransients(raised);
-}
-
-void Client::raiseWithTransients(std::set<Client*>& raised) {
-    raised.insert(this);
-    tag()->stack->raiseSlice(slice);
-    // collect the clients that are transient for this one, from top to
-    // bottom of the current stack of the tag.
-    vector<Client*> transients;
-    tag()->stack->extractWindows(true, [&](Window win) {
-        Client* client = manager.client(win);
-        if (client && client->transientFor_ == window_
-            && raised.count(client) == 0)
-        {
-            transients.push_back(client);
-        }
-    });
-    // raise the lowest transient first, such that the topmost one
-    // ends up on top again.
-    for (auto it = transients.rbegin(); it != transients.rend(); ++it) {
-        (*it)->raiseWithTransients(raised);
+    for (Client* client : withTransients()) {
+        tag()->stack->raiseSlice(client->slice);
     }
 }
 

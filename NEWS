@@ -17,8 +17,10 @@ Current git version
     floating window raised after it.
   * Keep transient windows (dialogs with a WM_TRANSIENT_FOR hint) above the
     window they belong to: raising a client now also raises its transient
-    clients, so a dialog is no longer covered by its own application after
-    the application window is raised, focused or clicked.
+    clients, and a client in the fullscreen layer or in the focus layer
+    (raise_on_focus_temporarily) takes its transient clients with it, so a
+    dialog is no longer covered by its own application after the application
+    window is raised, focused, clicked or made fullscreen.
 
 Release 0.9.6 on 2026-04-03
 ---------------------------

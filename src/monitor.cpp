@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cstring>
 #include <sstream>
+#include <set>
 #include <vector>
 
 #include "client.h"
@@ -204,12 +205,28 @@ void Monitor::applyLayout() {
         }
     }
     // 1. Update stack (TODO: why stack first?)
-    // the fullscreen layer holds the fullscreen clients, tiled or floated
-    // (res.data only contains the clients of the frame tree)
+    // The fullscreen layer holds the fullscreen clients (tiled or floated)
+    // and their transient clients (their dialogs), such that a dialog stays
+    // above its fullscreen window.
+    std::set<Client*> inFullscreenLayer;
     tag->foreachClient([&](Client* c) {
-        if (c->fullscreen_()) {
-            tag->stack->sliceAddLayer(c->slice, LAYER_FULLSCREEN);
-        } else {
+        if (!c->fullscreen_()) {
+            return;
+        }
+        // if the client enters the fullscreen layer now, then re-insert its
+        // transients that are already in the layer, such that they end up
+        // above the client again.
+        bool entersLayer = c->slice->layers.count(LAYER_FULLSCREEN) == 0;
+        for (Client* client : c->withTransients()) {
+            if (entersLayer) {
+                tag->stack->sliceRemoveLayer(client->slice, LAYER_FULLSCREEN);
+            }
+            tag->stack->sliceAddLayer(client->slice, LAYER_FULLSCREEN);
+            inFullscreenLayer.insert(client);
+        }
+    });
+    tag->foreachClient([&](Client* c) {
+        if (inFullscreenLayer.count(c) == 0) {
             tag->stack->sliceRemoveLayer(c->slice, LAYER_FULLSCREEN);
         }
     });
@@ -240,7 +257,10 @@ void Monitor::applyLayout() {
         if ((isFocused && g_settings->raise_on_focus_temporarily())
             || tag->stack->isLayerEmpty(LAYER_FULLSCREEN) == false)
         {
-            tag->stack->sliceAddLayer(res.focus->slice, LAYER_FOCUS);
+            // the transients of the focused client come along, above it
+            for (Client* client : res.focus->withTransients()) {
+                tag->stack->sliceAddLayer(client->slice, LAYER_FOCUS);
+            }
         }
     }
     restack();

@@ -4,6 +4,7 @@
 #include <X11/X.h>
 #include <X11/Xlib.h>
 #include <set>
+#include <vector>
 
 #include "attribute_.h"
 #include "child.h"
@@ -122,6 +123,7 @@ public:
     void readWmHints(bool forceNotUrgent = false);
     void update_title();
     void updateTransientFor();
+    std::vector<Client*> withTransients();
     void raise();
     void lower();
 
@@ -140,7 +142,7 @@ public:
 
     void updateEwmhState();
 private:
-    void raiseWithTransients(std::set<Client*>& raised);
+    void collectWithTransients(std::vector<Client*>& result, std::set<Client*>& visited);
     void floatingGeometryChanged();
     void urgencyAttributeChanged(bool state);
     void fixParentWindow(bool decorated);
