@@ -11,6 +11,10 @@ Current git version
     unmapped (e.g. minimized) client changes. Previously, the next unmap by
     the application itself (e.g. hiding to the system tray) was ignored and
     the window stayed managed although it was not shown anymore.
+  * Put a floating client (the 'floating' attribute set) that is fullscreen
+    in the fullscreen layer, like a tiled fullscreen client. Previously it
+    was resized to the monitor but stayed in the floating layer, below any
+    floating window raised after it.
 
 Release 0.9.6 on 2026-04-03
 ---------------------------

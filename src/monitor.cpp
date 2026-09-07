@@ -204,13 +204,17 @@ void Monitor::applyLayout() {
         }
     }
     // 1. Update stack (TODO: why stack first?)
-    for (auto& p : res.data) {
-        Client* c = p.first;
+    // the fullscreen layer holds the fullscreen clients, tiled or floated
+    // (res.data only contains the clients of the frame tree)
+    tag->foreachClient([&](Client* c) {
         if (c->fullscreen_()) {
             tag->stack->sliceAddLayer(c->slice, LAYER_FULLSCREEN);
         } else {
             tag->stack->sliceRemoveLayer(c->slice, LAYER_FULLSCREEN);
         }
+    });
+    for (auto& p : res.data) {
+        Client* c = p.first;
         // special raise rules for tiled clients:
         if (!p.second.floated) {
             // this client is the globally focused client if this monitor

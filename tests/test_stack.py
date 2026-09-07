@@ -363,3 +363,21 @@ def test_fullscreen_above_unmanaged(hlwm, x11, mouse, decorated):
     # double check that disabling fullscreen lowers the window again:
     hlwm.attr.clients[fs_winid].fullscreen = False
     assert x11.get_window_under_cursor() == um
+
+
+def helper_get_layer_as_list(hlwm, layer):
+    """the clients in the given layer (e.g. 'Fullscreen-Layer') of the
+    stack, from top to bottom"""
+    stack_stdout = hlwm.call('stack').stdout
+    match = re.search(layer + r'(\n.*Client.*)*', stack_stdout, flags=re.MULTILINE)
+    return re.findall('Client (0x[0-9a-f]+)', match.group(0))
+
+
+def test_single_floated_fullscreen_client_in_fullscreen_layer(hlwm):
+    winid, _ = hlwm.create_client()
+    other, _ = hlwm.create_client()
+    hlwm.attr.clients[winid].floating = True
+    hlwm.attr.clients[winid].fullscreen = True
+    assert helper_get_layer_as_list(hlwm, 'Fullscreen-Layer') == [winid]
+    hlwm.attr.clients[winid].fullscreen = False
+    assert helper_get_layer_as_list(hlwm, 'Fullscreen-Layer') == []
