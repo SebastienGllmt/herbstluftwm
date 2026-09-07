@@ -13,6 +13,7 @@
 #include "object.h"
 #include "rectangle.h"
 #include "regexstr.h"
+#include "stack.h"
 #include "x11-types.h"
 
 class Decoration;
@@ -21,7 +22,6 @@ class ResizeAction;
 class DecTriple;
 class Ewmh;
 class FrameLeaf;
-class Slice;
 class HSTag;
 class Monitor;
 class Settings;
@@ -124,6 +124,7 @@ public:
     void update_title();
     void updateTransientFor();
     std::vector<Client*> withTransients();
+    void raiseIntoLayer(HSLayer layer, bool bringTransients);
     void raise();
     void lower();
 

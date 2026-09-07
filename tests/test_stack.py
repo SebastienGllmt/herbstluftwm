@@ -565,3 +565,37 @@ def test_raise_on_focus_temporarily_takes_transient_into_focus_layer(hlwm, x11):
     hlwm.call(['jumpto', other_id])
     assert helper_get_layer_as_list(hlwm, 'Focus-Layer') == [other_id]
     assert helper_get_stack_as_list(hlwm) == [other_id, dialog_id, parent_id]
+
+
+def test_parent_set_floating_stays_below_transient(hlwm, x11):
+    # tiling tag: the dialog is floated by the transient_for hint, the
+    # parent is tiled
+    parent, parent_id = x11.create_client()
+    dialog, dialog_id = x11.create_client(transient_for=parent)
+    subdialog, subdialog_id = x11.create_client(transient_for=dialog)
+    other, other_id = x11.create_client()
+    hlwm.call(['jumpto', other_id])
+    assert helper_get_layer_as_list(hlwm, 'Floating-Layer') == [subdialog_id, dialog_id]
+
+    hlwm.attr.clients[parent_id].floating = True
+    assert helper_get_layer_as_list(hlwm, 'Floating-Layer') \
+        == [subdialog_id, dialog_id, parent_id]
+
+    hlwm.attr.clients[parent_id].floating = False
+    assert helper_get_layer_as_list(hlwm, 'Floating-Layer') == [subdialog_id, dialog_id]
+
+
+def test_parent_set_floating_leaves_tiled_transient(hlwm, x11):
+    hlwm.call('rule floating=off')
+    parent, parent_id = x11.create_client()
+    dialog, dialog_id = x11.create_client(transient_for=parent)
+    assert helper_get_layer_as_list(hlwm, 'Floating-Layer') == []
+
+    hlwm.attr.clients[parent_id].floating = True
+    assert helper_get_layer_as_list(hlwm, 'Floating-Layer') == [parent_id]
+    assert helper_get_layer_as_list(hlwm, 'Tiling-Layer') == [dialog_id]
+
+    # and back to tiling, below the dialog again
+    hlwm.attr.clients[parent_id].floating = False
+    assert helper_get_layer_as_list(hlwm, 'Floating-Layer') == []
+    assert helper_get_layer_as_list(hlwm, 'Tiling-Layer') == [dialog_id, parent_id]

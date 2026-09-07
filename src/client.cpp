@@ -335,6 +335,26 @@ void Client::collectWithTransients(vector<Client*>& result, std::set<Client*>& v
 }
 
 /**
+ * @brief put this client on top of the given layer of its tag's stack, and
+ * its transient windows above it. A transient that is already in the layer
+ * is re-inserted above the client; a transient that is not in the layer is
+ * inserted only if bringTransients is set (e.g. the fullscreen layer takes
+ * the dialogs of a fullscreen window with it, whereas the floating layer
+ * leaves a tiled dialog of a floated window where it is).
+ */
+void Client::raiseIntoLayer(HSLayer layer, bool bringTransients) {
+    for (Client* client : withTransients()) {
+        bool inLayer = client->slice->layers.count(layer) != 0;
+        if (client == this || inLayer || bringTransients) {
+            if (inLayer) {
+                tag()->stack->sliceRemoveLayer(client->slice, layer);
+            }
+            tag()->stack->sliceAddLayer(client->slice, layer);
+        }
+    }
+}
+
+/**
  * @brief raise this client and keep its transient windows above it: after
  * the client itself, every client on the same tag whose WM_TRANSIENT_FOR
  * names this client is raised as well (recursively), preserving their

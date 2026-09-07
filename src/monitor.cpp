@@ -213,14 +213,12 @@ void Monitor::applyLayout() {
         if (!c->fullscreen_()) {
             return;
         }
-        // if the client enters the fullscreen layer now, then re-insert its
-        // transients that are already in the layer, such that they end up
-        // above the client again.
-        bool entersLayer = c->slice->layers.count(LAYER_FULLSCREEN) == 0;
+        if (c->slice->layers.count(LAYER_FULLSCREEN) == 0) {
+            // the client enters the fullscreen layer now: on top, and its
+            // transients above it (also those already in the layer)
+            c->raiseIntoLayer(LAYER_FULLSCREEN, true);
+        }
         for (Client* client : c->withTransients()) {
-            if (entersLayer) {
-                tag->stack->sliceRemoveLayer(client->slice, LAYER_FULLSCREEN);
-            }
             tag->stack->sliceAddLayer(client->slice, LAYER_FULLSCREEN);
             inFullscreenLayer.insert(client);
         }
@@ -258,9 +256,7 @@ void Monitor::applyLayout() {
             || tag->stack->isLayerEmpty(LAYER_FULLSCREEN) == false)
         {
             // the transients of the focused client come along, above it
-            for (Client* client : res.focus->withTransients()) {
-                tag->stack->sliceAddLayer(client->slice, LAYER_FOCUS);
-            }
+            res.focus->raiseIntoLayer(LAYER_FOCUS, true);
         }
     }
     restack();
