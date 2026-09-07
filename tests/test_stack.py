@@ -489,6 +489,86 @@ def test_raise_ignores_transient_on_other_tag(hlwm, x11):
     assert helper_get_stack_as_list(hlwm, strip_focus_layer=True) == [parent, other]
 
 
+def test_lower_transient_takes_parent_along(hlwm, x11):
+    hlwm.call('floating on')
+    parent_win, parent = x11.create_client()
+    _, dialog = x11.create_client(transient_for=parent_win)
+    _, other = x11.create_client()
+    hlwm.call(['raise', parent])
+    assert helper_get_stack_as_list(hlwm, strip_focus_layer=True) \
+        == [dialog, parent, other]
+
+    hlwm.call(['lower', dialog])
+
+    # the parent is lowered below its dialog
+    assert helper_get_stack_as_list(hlwm, strip_focus_layer=True) \
+        == [other, dialog, parent]
+
+
+def test_lower_nested_transient_takes_parents_along(hlwm, x11):
+    hlwm.call('floating on')
+    parent_win, parent = x11.create_client()
+    dialog_win, dialog = x11.create_client(transient_for=parent_win)
+    _, subdialog = x11.create_client(transient_for=dialog_win)
+    _, other = x11.create_client()
+    hlwm.call(['raise', parent])
+    assert helper_get_stack_as_list(hlwm, strip_focus_layer=True) \
+        == [subdialog, dialog, parent, other]
+
+    hlwm.call(['lower', subdialog])
+
+    assert helper_get_stack_as_list(hlwm, strip_focus_layer=True) \
+        == [other, subdialog, dialog, parent]
+
+
+def test_lower_parent_leaves_transient(hlwm, x11):
+    hlwm.call('floating on')
+    parent_win, parent = x11.create_client()
+    _, dialog = x11.create_client(transient_for=parent_win)
+    _, other = x11.create_client()
+    hlwm.call(['raise', parent])
+    assert helper_get_stack_as_list(hlwm, strip_focus_layer=True) \
+        == [dialog, parent, other]
+
+    hlwm.call(['lower', parent])
+
+    # the dialog is above its parent anyway, so only the parent moves
+    assert helper_get_stack_as_list(hlwm, strip_focus_layer=True) \
+        == [dialog, other, parent]
+
+
+def test_lower_transient_cycle_terminates(hlwm, x11):
+    hlwm.call('floating on')
+    win1, client1 = x11.create_client()
+    win2, client2 = x11.create_client(transient_for=win1)
+    win1.set_wm_transient_for(win2)
+    x11.display.sync()
+    _, other = x11.create_client()
+    hlwm.call(['raise', client2])
+
+    hlwm.call(['lower', client2])
+
+    assert helper_get_stack_as_list(hlwm, strip_focus_layer=True) \
+        == [other, client2, client1]
+
+
+def test_lower_ignores_parent_on_other_tag(hlwm, x11):
+    hlwm.call('floating on')
+    hlwm.call('add othertag')
+    parent_win, parent = x11.create_client()
+    _, dialog = x11.create_client(transient_for=parent_win)
+    _, other = x11.create_client()
+    hlwm.call(['jumpto', parent])
+    hlwm.call(['move', 'othertag'])
+    assert hlwm.get_attr(f'clients.{parent}.tag') == 'othertag'
+    hlwm.call(['raise', dialog])
+    assert helper_get_stack_as_list(hlwm, strip_focus_layer=True) == [dialog, other]
+
+    hlwm.call(['lower', dialog])
+
+    assert helper_get_stack_as_list(hlwm, strip_focus_layer=True) == [other, dialog]
+
+
 def test_fullscreen_parent_takes_transient_into_fullscreen_layer(hlwm, x11):
     hlwm.call('floating on')
     hlwm.call('set raise_on_focus true')

@@ -124,6 +124,7 @@ public:
     void update_title();
     void updateTransientFor();
     std::vector<Client*> withTransients();
+    Client* transientForClient();
     void raiseIntoLayer(HSLayer layer, bool bringTransients);
     void raise();
     void lower();

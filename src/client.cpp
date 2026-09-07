@@ -367,9 +367,34 @@ void Client::raise() {
     }
 }
 
-void Client::lower()
-{
-    this->tag()->stack->lowerSlice(this->slice);
+//! the client on the same tag that this client is transient for, if any
+Client* Client::transientForClient() {
+    if (transientFor_ == None) {
+        return nullptr;
+    }
+    Client* parent = manager.client(transientFor_);
+    if (!parent || parent->tag() != tag()) {
+        return nullptr;
+    }
+    return parent;
+}
+
+/**
+ * @brief lower this client and keep it above the window it is transient
+ * for: after the client itself, the client it is transient for is lowered
+ * as well (recursively up the chain of WM_TRANSIENT_FOR hints on the same
+ * tag), such that every one of them ends up below the client that was
+ * lowered. The transients of the lowered client itself need no move, they
+ * stay above it. A cycle in the hints is visited only once.
+ */
+void Client::lower() {
+    std::set<Client*> visited;
+    Client* client = this;
+    while (client && visited.count(client) == 0) {
+        visited.insert(client);
+        tag()->stack->lowerSlice(client->slice);
+        client = client->transientForClient();
+    }
 }
 
 /**
